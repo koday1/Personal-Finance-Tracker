@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Personal Finance Sync</title>
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8f5;
+        --panel: #ffffff;
+        --ink: #17201b;
+        --muted: #66736b;
+        --line: #dce3dc;
+        --soft: #eef3ef;
+        --accent: #0f766e;
+        --accent-dark: #115e59;
+        --purple: #5b4b8a;
+        --danger: #b42318;
+        --income: #147d50;
+        --expense: #9f3a24;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+      }
+
+      header {
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        padding: 18px 24px;
+      }
+
+      h1 {
+        font-size: 18px;
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      main {
+        margin: 0 auto;
+        max-width: 1280px;
+        padding: 24px;
+      }
+
+      label {
+        color: var(--muted);
+        display: grid;
+        font-size: 12px;
+        font-weight: 700;
+        gap: 6px;
+        text-transform: uppercase;
+      }
+
+      input,
+      select {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--ink);
+        font: inherit;
+        min-height: 38px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      button {
+        background: var(--accent);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        min-height: 38px;
+        padding: 8px 12px;
+        white-space: nowrap;
+      }
+
+      button.secondary {
+        background: white;
+        color: var(--accent-dark);
+      }
+
+      button.test {
+        background: var(--purple);
+        border-color: var(--purple);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      .toolbar,
+      .filters {
+        align-items: end;
+        display: grid;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .toolbar {
+        grid-template-columns: minmax(220px, 1fr) repeat(4, auto);
+      }
+
+      .filters {
+        grid-template-columns: 1.5fr repeat(4, minmax(150px, 1fr));
+      }
+
+      .summary-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 18px;
+      }
+
+      .metric {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .metric span {
+        color: var(--muted);
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 24px;
+        line-height: 1.1;
+      }
+
+      .metric small {
+        color: var(--muted);
+        display: block;
+        margin-top: 8px;
+      }
+
+      .status {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0 0 16px;
+        min-height: 20px;
+      }
+
+      .error {
+        color: var(--danger);
+      }
+
+      .workspace {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1fr) 300px;
+      }
+
+      .table-wrap,
+      .side-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .table-scroll {
+        max-height: 620px;
+        overflow: auto;
+      }
+
+      table {
+        border-collapse: collapse;
+        min-width: 1040px;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--soft);
+        color: #415047;
+        cursor: pointer;
+        font-size: 12px;
+        position: sticky;
+        text-transform: uppercase;
+        top: 0;
+        user-select: none;
+      }
+
+      td.amount {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .amount.income {
+        color: var(--income);
+      }
+
+      .amount.expense {
+        color: var(--expense);
+      }
+
+      .pill {
+        background: var(--soft);
+        border-radius: 999px;
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 8px;
+        white-space: nowrap;
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 32px;
+        text-align: center;
+      }
+
+      .side-panel {
+        padding: 16px;
+      }
+
+      .side-panel h2 {
+        font-size: 15px;
+        margin: 0 0 12px;
+      }
+
+      .category-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .institution-list {
+        border-top: 1px solid var(--line);
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+        padding-top: 16px;
+      }
+
+      .institution-row {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      .institution-row strong,
+      .institution-row span {
+        display: block;
+        overflow-wrap: anywhere;
+      }
+
+      .institution-row span {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+      }
+
+      button.danger {
+        background: white;
+        border-color: var(--danger);
+        color: var(--danger);
+        min-height: 34px;
+        padding: 6px 10px;
+      }
+
+      .category-row {
+        display: grid;
+        gap: 6px;
+      }
+
+      .category-row div {
+        align-items: center;
+        display: flex;
+        font-size: 13px;
+        justify-content: space-between;
+      }
+
+      .bar {
+        background: var(--soft);
+        border-radius: 999px;
+        height: 7px;
+        overflow: hidden;
+      }
+
+      .bar span {
+        background: var(--accent);
+        display: block;
+        height: 100%;
+      }
+
+      @media (max-width: 980px) {
+        .toolbar,
+        .filters,
+        .summary-grid,
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        main {
+          padding: 16px;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Personal Finance Sync</h1>
+      <span id="summary">No transactions loaded</span>
+    </header>
+
+    <main>
+      <div class="toolbar">
+        <label>
+          API key
+          <input id="apiKey" type="password" autocomplete="off" placeholder="APP_API_KEY value">
+        </label>
+        <button id="connect">Connect sandbox bank</button>
+        <button id="testData" class="test">Create test data</button>
+        <button id="sync" class="secondary">Sync transactions</button>
+        <button id="refresh" class="secondary">Refresh table</button>
+      </div>
+
+      <div class="filters">
+        <label>
+          Search
+          <input id="search" type="search" placeholder="Merchant, name, category">
+        </label>
+        <label>
+          Month
+          <select id="monthFilter"></select>
+        </label>
+        <label>
+          Category
+          <select id="categoryFilter"></select>
+        </label>
+        <label>
+          Type
+          <select id="typeFilter">
+            <option value="all">All</option>
+            <option value="expense">Expenses</option>
+            <option value="income">Income</option>
+            <option value="transfer">Transfers</option>
+          </select>
+        </label>
+        <label>
+          Sort
+          <select id="sortSelect">
+            <option value="date-desc">Date newest</option>
+            <option value="date-asc">Date oldest</option>
+            <option value="amount-desc">Amount high</option>
+            <option value="amount-asc">Amount low</option>
+            <option value="budget_category-asc">Category A-Z</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="merchant-asc">Merchant A-Z</option>
+            <option value="cashflow_type-asc">Type A-Z</option>
+          </select>
+        </label>
+      </div>
+
+      <section class="summary-grid" aria-label="Monthly summary">
+        <div class="metric">
+          <span>Income</span>
+          <strong id="incomeTotal">$0.00</strong>
+          <small id="incomeCount">0 transactions</small>
+        </div>
+        <div class="metric">
+          <span>Spending</span>
+          <strong id="spendingTotal">$0.00</strong>
+          <small id="spendingCount">0 transactions</small>
+        </div>
+        <div class="metric">
+          <span>Net Cashflow</span>
+          <strong id="netTotal">$0.00</strong>
+          <small id="netLabel">Income minus spending</small>
+        </div>
+        <div class="metric">
+          <span>Top Category</span>
+          <strong id="topCategory">None</strong>
+          <small id="topCategoryAmount">$0.00</small>
+        </div>
+      </section>
+
+      <p id="status" class="status"></p>
+
+      <div class="workspace">
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="date">Date</th>
+                  <th data-sort="name">Name</th>
+                  <th data-sort="merchant">Merchant</th>
+                  <th data-sort="amount">Amount</th>
+                  <th data-sort="budget_category">Budget Category</th>
+                  <th data-sort="cashflow_type">Type</th>
+                  <th>Pending</th>
+                </tr>
+              </thead>
+              <tbody id="rows">
+                <tr>
+                  <td colspan="7" class="empty">Create test data, then sync transactions.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <h2>Category Breakdown</h2>
+          <div id="categoryBreakdown" class="category-list">
+            <div class="empty">No spending yet.</div>
+          </div>
+
+          <div class="institution-list">
+            <h2>Connected Institutions</h2>
+            <div id="institutionList">
+              <div class="empty">No institutions connected.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const apiKeyInput = document.getElementById('apiKey');
+      const statusEl = document.getElementById('status');
+      const summaryEl = document.getElementById('summary');
+      const rowsEl = document.getElementById('rows');
+      const institutionListEl = document.getElementById('institutionList');
+      const searchInput = document.getElementById('search');
+      const monthFilter = document.getElementById('monthFilter');
+      const categoryFilter = document.getElementById('categoryFilter');
+      const typeFilter = document.getElementById('typeFilter');
+      const sortSelect = document.getElementById('sortSelect');
+      const buttons = [...document.querySelectorAll('button')];
+      const state = {
+        transactions: [],
+        filtered: [],
+        items: [],
+      };
+
+      apiKeyInput.value = localStorage.getItem('financeApiKey') || '';
+      apiKeyInput.addEventListener('change', () => {
+        localStorage.setItem('financeApiKey', apiKeyInput.value);
+      });
+
+      document.getElementById('connect').addEventListener('click', connectPlaid);
+      document.getElementById('testData').addEventListener('click', createSandboxItem);
+      document.getElementById('sync').addEventListener('click', syncTransactions);
+      document.getElementById('refresh').addEventListener('click', loadTransactions);
+      [searchInput, monthFilter, categoryFilter, typeFilter, sortSelect].forEach((control) => {
+        control.addEventListener('input', applyFilters);
+        control.addEventListener('change', applyFilters);
+      });
+      document.querySelectorAll('th[data-sort]').forEach((header) => {
+        header.addEventListener('click', () => setSort(header.dataset.sort));
+      });
+
+      if (apiKeyInput.value) {
+        loadTransactions();
+      } else {
+        setFilterOptions([]);
+      }
+
+      async function connectPlaid() {
+        setBusy(true, 'Creating Plaid Link token...');
+        try {
+          const response = await apiFetch('/api/plaid/link-token', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: 'personal' }),
+          });
+          const handler = Plaid.create({
+            token: response.link_token,
+            onSuccess: async (publicToken, metadata) => {
+              setBusy(true, 'Saving Plaid connection...');
+              await apiFetch('/api/plaid/exchange-public-token', {
+                method: 'POST',
+                body: JSON.stringify({
+                  public_token: publicToken,
+                  user_id: 'personal',
+                  institution_name: metadata.institution ? metadata.institution.name : '',
+                }),
+              });
+              await syncTransactions();
+            },
+            onExit: (error) => {
+              setBusy(false);
+              if (error) {
+                setStatus(error.display_message || error.error_message || 'Plaid Link exited.', true);
+              } else {
+                setStatus('Plaid Link closed.');
+              }
+            },
+          });
+          setBusy(false, 'Plaid Link is ready.');
+          handler.open();
+        } catch (error) {
+          setBusy(false);
+          setStatus(error.message, true);
+        }
+      }
+
+      async function createSandboxItem() {
+        setBusy(true, 'Creating sandbox test item...');
+        try {
+          const result = await apiFetch('/api/plaid/sandbox-item', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: 'personal' }),
+          });
+          setStatus(`Created sandbox item ${result.item_id}. Syncing transactions...`);
+          await syncTransactions();
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function syncTransactions() {
+        setBusy(true, 'Syncing transactions...');
+        try {
+          const result = await apiFetch('/api/plaid/sync-transactions', {
+            method: 'POST',
+            body: JSON.stringify({ max_pages: 10 }),
+          });
+          setStatus(`Synced ${result.items_synced} item(s): ${result.added} added, ${result.modified} modified, ${result.removed} removed.`);
+          await loadTransactions();
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function loadTransactions() {
+        setBusy(true, 'Loading transactions...');
+        try {
+          const result = await apiFetch('/api/sheets/transactions?include_pending=true');
+          state.transactions = result.transactions || [];
+          setFilterOptions(state.transactions);
+          await loadItems();
+          applyFilters();
+          setStatus(`Loaded ${result.count} transaction(s).`);
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function loadItems() {
+        const result = await apiFetch('/api/plaid/items');
+        state.items = result.items || [];
+        renderItems();
+      }
+
+      async function disconnectItem(itemId, institutionName) {
+        const confirmed = window.confirm(`Disconnect ${institutionName}? This removes the Plaid connection and deletes its local transactions.`);
+        if (!confirmed) {
+          return;
+        }
+
+        setBusy(true, `Disconnecting ${institutionName}...`);
+        try {
+          await apiFetch('/api/plaid/remove-item', {
+            method: 'POST',
+            body: JSON.stringify({ item_id: itemId }),
+          });
+          state.transactions = state.transactions.filter((transaction) => transaction.item_id !== itemId);
+          await loadTransactions();
+          setStatus(`${institutionName} disconnected.`);
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function apiFetch(path, options = {}) {
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+          throw new Error('Enter your API key first.');
+        }
+        localStorage.setItem('financeApiKey', apiKey);
+
+        const response = await fetch(path, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey,
+            ...(options.headers || {}),
+          },
+        });
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : {};
+        if (!response.ok) {
+          throw new Error(data.detail || `Request failed with status ${response.status}`);
+        }
+        return data;
+      }
+
+      function setFilterOptions(transactions) {
+        const selectedMonth = monthFilter.value || 'all';
+        const selectedCategory = categoryFilter.value || 'all';
+        const months = [...new Set(transactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse();
+        const categories = [...new Set([
+          ...transactions.map((transaction) => transaction.budget_category || 'Other'),
+          'Other',
+        ])].sort();
+
+        monthFilter.innerHTML = [
+          '<option value="all">All months</option>',
+          ...months.map((month) => `<option value="${month}">${formatMonth(month)}</option>`),
+        ].join('');
+        categoryFilter.innerHTML = [
+          '<option value="all">All categories</option>',
+          ...categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`),
+        ].join('');
+
+        monthFilter.value = months.includes(selectedMonth) ? selectedMonth : months[0] || 'all';
+        categoryFilter.value = categories.includes(selectedCategory) ? selectedCategory : 'all';
+      }
+
+      function applyFilters() {
+        const query = searchInput.value.trim().toLowerCase();
+        const month = monthFilter.value;
+        const category = categoryFilter.value;
+        const type = typeFilter.value;
+
+        state.filtered = state.transactions.filter((transaction) => {
+          const haystack = [
+            transaction.name,
+            transaction.merchant,
+            transaction.budget_category,
+            transaction.category_primary,
+            transaction.category_detailed,
+          ].join(' ').toLowerCase();
+
+          return (!query || haystack.includes(query))
+            && (month === 'all' || transaction.date.startsWith(month))
+            && (category === 'all' || transaction.budget_category === category)
+            && (type === 'all' || transaction.cashflow_type === type);
+        });
+
+        sortTransactions();
+        renderDashboard();
+      }
+
+      function setSort(column) {
+        const current = sortSelect.value;
+        const [activeColumn, activeDirection] = current.split('-');
+        const direction = activeColumn === column && activeDirection === 'asc' ? 'desc' : 'asc';
+        sortSelect.value = `${column}-${direction}`;
+        if (!sortSelect.value) {
+          const option = document.createElement('option');
+          option.value = `${column}-${direction}`;
+          option.textContent = `${column.replace('_', ' ')} ${direction.toUpperCase()}`;
+          sortSelect.appendChild(option);
+          sortSelect.value = option.value;
+        }
+        applyFilters();
+      }
+
+      function sortTransactions() {
+        const [field, direction] = sortSelect.value.split('-');
+        const multiplier = direction === 'asc' ? 1 : -1;
+        state.filtered.sort((a, b) => {
+          const left = field === 'amount' ? Number(a[field]) : String(a[field] || '').toLowerCase();
+          const right = field === 'amount' ? Number(b[field]) : String(b[field] || '').toLowerCase();
+          if (left < right) return -1 * multiplier;
+          if (left > right) return 1 * multiplier;
+          return 0;
+        });
+      }
+
+      function renderDashboard() {
+        renderRows(state.filtered);
+        renderSummary(state.filtered);
+        renderCategoryBreakdown(state.filtered);
+      }
+
+      function renderRows(transactions) {
+        summaryEl.textContent = `${transactions.length} shown of ${state.transactions.length}`;
+        if (!transactions.length) {
+          rowsEl.innerHTML = '<tr><td colspan="7" class="empty">No transactions match these filters.</td></tr>';
+          return;
+        }
+
+        rowsEl.innerHTML = transactions.map((transaction) => `
+          <tr>
+            <td>${escapeHtml(transaction.date)}</td>
+            <td>${escapeHtml(transaction.name)}</td>
+            <td>${escapeHtml(transaction.merchant)}</td>
+            <td class="amount ${transaction.cashflow_type}">${formatSignedAmount(transaction)}</td>
+            <td><span class="pill">${escapeHtml(transaction.budget_category)}</span></td>
+            <td>${escapeHtml(labelType(transaction.cashflow_type))}</td>
+            <td>${transaction.pending ? 'Yes' : 'No'}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderSummary(transactions) {
+        const expenses = transactions.filter((transaction) => transaction.cashflow_type === 'expense');
+        const income = transactions.filter((transaction) => transaction.cashflow_type === 'income');
+        const spendingTotal = sum(expenses.map((transaction) => Math.abs(Number(transaction.amount))));
+        const incomeTotal = sum(income.map((transaction) => Math.abs(Number(transaction.amount))));
+        const net = incomeTotal - spendingTotal;
+        const categoryTotals = categoryTotalsFor(expenses);
+        const top = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+
+        document.getElementById('incomeTotal').textContent = formatCurrency(incomeTotal);
+        document.getElementById('incomeCount').textContent = transactionCountLabel(income.length);
+        document.getElementById('spendingTotal').textContent = formatCurrency(spendingTotal);
+        document.getElementById('spendingCount').textContent = transactionCountLabel(expenses.length);
+        document.getElementById('netTotal').textContent = formatCurrency(net);
+        document.getElementById('netLabel').textContent = net >= 0 ? 'Positive cashflow' : 'Spending above income';
+        document.getElementById('topCategory').textContent = top ? top[0] : 'None';
+        document.getElementById('topCategoryAmount').textContent = top ? formatCurrency(top[1]) : '$0.00';
+      }
+
+      function renderCategoryBreakdown(transactions) {
+        const expenses = transactions.filter((transaction) => transaction.cashflow_type === 'expense');
+        const totals = Object.entries(categoryTotalsFor(expenses)).sort((a, b) => b[1] - a[1]);
+        const max = totals[0] ? totals[0][1] : 0;
+        const container = document.getElementById('categoryBreakdown');
+
+        if (!totals.length) {
+          container.innerHTML = '<div class="empty">No spending yet.</div>';
+          return;
+        }
+
+        container.innerHTML = totals.map(([category, amount]) => `
+          <div class="category-row">
+            <div>
+              <strong>${escapeHtml(category)}</strong>
+              <span>${formatCurrency(amount)}</span>
+            </div>
+            <div class="bar"><span style="width: ${max ? (amount / max) * 100 : 0}%"></span></div>
+          </div>
+        `).join('');
+      }
+
+      function renderItems() {
+        if (!state.items.length) {
+          institutionListEl.innerHTML = '<div class="empty">No institutions connected.</div>';
+          return;
+        }
+
+        institutionListEl.innerHTML = state.items.map((item) => `
+          <div class="institution-row">
+            <div>
+              <strong>${escapeHtml(item.institution_name)}</strong>
+              <span>${escapeHtml(item.item_id)}</span>
+            </div>
+            <button class="danger" type="button" data-item-id="${escapeHtml(item.item_id)}" data-institution="${escapeHtml(item.institution_name)}">
+              Disconnect
+            </button>
+          </div>
+        `).join('');
+
+        institutionListEl.querySelectorAll('button[data-item-id]').forEach((button) => {
+          button.addEventListener('click', () => disconnectItem(button.dataset.itemId, button.dataset.institution));
+        });
+      }
+
+      function categoryTotalsFor(transactions) {
+        return transactions.reduce((totals, transaction) => {
+          const category = transaction.budget_category || 'Other';
+          totals[category] = (totals[category] || 0) + Math.abs(Number(transaction.amount));
+          return totals;
+        }, {});
+      }
+
+      function formatSignedAmount(transaction) {
+        const amount = Math.abs(Number(transaction.amount));
+        if (transaction.cashflow_type === 'income') {
+          return `+${formatCurrency(amount)}`;
+        }
+        if (transaction.cashflow_type === 'expense') {
+          return `-${formatCurrency(amount)}`;
+        }
+        return formatCurrency(amount);
+      }
+
+      function formatCurrency(amount) {
+        return Number(amount).toLocaleString(undefined, {
+          style: 'currency',
+          currency: 'USD',
+        });
+      }
+
+      function formatMonth(month) {
+        const [year, monthNumber] = month.split('-').map(Number);
+        return new Date(year, monthNumber - 1).toLocaleString(undefined, {
+          month: 'short',
+          year: 'numeric',
+        });
+      }
+
+      function transactionCountLabel(count) {
+        return `${count} transaction${count === 1 ? '' : 's'}`;
+      }
+
+      function labelType(value) {
+        return {
+          expense: 'Expense',
+          income: 'Income',
+          transfer: 'Transfer',
+        }[value] || 'Other';
+      }
+
+      function sum(values) {
+        return values.reduce((total, value) => total + Number(value), 0);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;',
+        }[char]));
+      }
+
+      function setStatus(message, isError = false) {
+        statusEl.textContent = message || '';
+        statusEl.classList.toggle('error', isError);
+      }
+
+      function setBusy(isBusy, message) {
+        buttons.forEach((button) => {
+          button.disabled = isBusy;
+        });
+        if (message) {
+          setStatus(message);
+        }
+      }
+    </script>
+  </body>
+</html>

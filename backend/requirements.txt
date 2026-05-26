@@ -1,0 +1,6 @@
+cryptography>=42.0.0
+fastapi>=0.111.0
+plaid-python>=34.0.0
+pydantic-settings>=2.2.1
+sqlalchemy>=2.0.30
+uvicorn[standard]>=0.29.0

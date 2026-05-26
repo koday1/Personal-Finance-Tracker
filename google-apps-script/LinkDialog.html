@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    <style>
+      body {
+        color: #1f2937;
+        font-family: Arial, sans-serif;
+        margin: 24px;
+      }
+
+      button {
+        background: #0f766e;
+        border: 0;
+        border-radius: 6px;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 10px 14px;
+      }
+
+      #status {
+        color: #4b5563;
+        font-size: 13px;
+        line-height: 1.4;
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="connect">Connect account</button>
+    <div id="status">Plaid Link is ready.</div>
+
+    <script>
+      const status = document.getElementById('status');
+      const handler = Plaid.create({
+        token: '<?= linkToken ?>',
+        onSuccess: (publicToken, metadata) => {
+          status.textContent = 'Saving account connection...';
+          google.script.run
+            .withSuccessHandler(() => {
+              status.textContent = 'Account connected. You can now sync transactions.';
+            })
+            .withFailureHandler((error) => {
+              status.textContent = error.message || String(error);
+            })
+            .exchangePublicToken(publicToken, metadata);
+        },
+        onExit: (error) => {
+          status.textContent = error ? error.display_message || error.error_message : 'Plaid Link closed.';
+        },
+      });
+
+      document.getElementById('connect').addEventListener('click', () => handler.open());
+    </script>
+  </body>
+</html>
