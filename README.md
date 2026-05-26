@@ -1,14 +1,17 @@
-# Personal Finance Sheets Sync
+# Personal Finance Tracker
 
-A lightweight personal budgeting backend that syncs Plaid transactions into a Google Sheets workflow.
+A lightweight personal budgeting app that syncs Plaid transactions into a local FastAPI backend and displays them in a simple dashboard.
 
-The app is intentionally small:
+The current app is built for a low-cost, self-owned workflow:
 
 - FastAPI backend
-- Plaid Link token generation and public token exchange
+- Plaid Sandbox and Plaid Link support
 - Encrypted Plaid access token storage
 - Transaction syncing through Plaid `/transactions/sync`
-- Google Apps Script client that imports categorized transactions into Sheets
+- Local dashboard with transaction table, filters, monthly summary, and category breakdown
+- Friendly budget categories and starter category rules
+- Disconnect button that removes a Plaid Item through `/item/remove`
+- Optional Google Sheets export path for later
 
 ## Repository Layout
 
@@ -19,11 +22,12 @@ backend/
     core/                settings and security helpers
     db/                  database session/bootstrap
     models/              SQLAlchemy models
-    services/            Plaid and mapping logic
+    services/            Plaid client, category rules, and transaction mapping
+    web/                 Built-in dashboard UI
 google-apps-script/
-  Code.gs                Apps Script client for Google Sheets
+  Code.gs                Optional Apps Script client for Google Sheets
 docs/
-  sheets-setup.md        Spreadsheet setup notes
+  sheets-setup.md        Optional spreadsheet setup notes
 ```
 
 ## Quick Start
@@ -37,7 +41,16 @@ cp .env.example .env
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Paste the generated key into `TOKEN_ENCRYPTION_KEY` in `.env`, then fill in your Plaid and Sheets API settings.
+Paste the generated key into `TOKEN_ENCRYPTION_KEY` in `backend/.env`.
+
+Then fill in:
+
+```env
+PLAID_CLIENT_ID=
+PLAID_SECRET=
+PLAID_ENV=sandbox
+APP_API_KEY=choose-a-local-password
+```
 
 Run locally:
 
@@ -45,32 +58,99 @@ Run locally:
 uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://127.0.0.1:8000`.
+Open:
 
-Open that URL in your browser for the built-in transaction table.
+```text
+http://127.0.0.1:8000
+```
+
+Paste your `APP_API_KEY` into the dashboard.
 
 ## Simplest Sandbox Test
 
-1. Set `PLAID_ENV=sandbox` in `backend/.env`.
-2. Start the backend with `uvicorn app.main:app --reload`.
-3. Open `http://127.0.0.1:8000`.
-4. Paste your `APP_API_KEY` value into the API key field.
-5. Click `Create test data`.
-6. The app will create a fake Sandbox bank connection, sync, and show transactions in the table.
+Use this before connecting real accounts.
 
-`Connect sandbox bank` is still available if you specifically want to test the Plaid Link popup. For the quickest local test, use `Create test data`.
+1. Start the backend.
+2. Open `http://127.0.0.1:8000`.
+3. Paste your `APP_API_KEY`.
+4. Click `Create test data`.
+5. The app creates a fake Plaid Sandbox institution, syncs transactions, and loads the dashboard.
 
-## Core Flow
+`Connect sandbox bank` is available if you want to test Plaid Link itself, but `Create test data` is the fastest path for local testing.
 
-1. The built-in frontend or Google Sheets calls `POST /api/plaid/link-token` with `X-API-Key`.
-2. The user completes Plaid Link.
-3. The frontend sends the `public_token` to `POST /api/plaid/exchange-public-token`.
-4. The backend stores the encrypted Plaid `access_token`.
-5. A scheduled job or Apps Script call runs `POST /api/plaid/sync-transactions` with `X-API-Key`.
-6. Google Sheets pulls rows from `GET /api/sheets/transactions` with `X-API-Key`.
+## Current Dashboard Features
+
+- Transaction table
+- Search by merchant, name, or category
+- Month filter
+- Budget category filter
+- Type filter for expenses, income, and transfers
+- Sort by date, amount, category, name, merchant, or type
+- Monthly summary cards for income, spending, net cashflow, and top category
+- Category breakdown sidebar
+- Connected institutions panel
+- Disconnect button for removing Plaid Items
+
+## Budget Categories
+
+Plaid categories are mapped into friendlier budget categories in:
+
+```text
+backend/app/services/category_rules.py
+```
+
+Examples:
+
+- `FOOD_AND_DRINK_COFFEE` -> `Coffee`
+- `FOOD_AND_DRINK_FAST_FOOD` -> `Restaurants`
+- `RENT_AND_UTILITIES` -> `Bills`
+- `TRANSPORTATION_TAXIS_AND_RIDE_SHARES` -> `Rideshare`
+- Unknown categories -> `Other`
+
+Merchant and name rules can also override Plaid categories.
+
+## Main Flow
+
+1. The dashboard calls `POST /api/plaid/link-token` or `POST /api/plaid/sandbox-item`.
+2. The backend stores an encrypted Plaid access token.
+3. `Sync transactions` calls `POST /api/plaid/sync-transactions`.
+4. The backend updates local SQLite transaction data.
+5. The dashboard calls `GET /api/sheets/transactions` to render the table and summaries.
+
+The `/api/sheets/transactions` name is historical; it now powers both the local dashboard and the optional Sheets workflow.
+
+## Sync vs Refresh
+
+`Sync transactions` talks to Plaid and updates the local database.
+
+`Refresh table` only reloads transactions that are already saved locally.
+
+## Disconnecting Institutions
+
+Use the dashboard's `Disconnect` button under `Connected Institutions` to remove an institution.
+
+That calls Plaid `/item/remove`, deletes that institution's local transactions, and removes the stored access token. This matters because Plaid billing can continue while an Item exists.
+
+## Secrets And Local Data
+
+Do not commit:
+
+- `backend/.env`
+- `backend/finance.db`
+- `backend/.venv/`
+
+These are ignored by Git.
+
+## Optional Google Sheets
+
+The original Sheets integration still exists, but the recommended first workflow is the built-in dashboard.
+
+See:
+
+```text
+docs/sheets-setup.md
+```
 
 ## Deployment Notes
 
-This can run on Replit, Render, Fly.io, Railway, or a small VPS. For anything beyond personal use, prefer Postgres over SQLite and put the encryption key in your hosting platform's secrets manager.
-
-Never commit `.env`, Plaid secrets, access tokens, or downloaded bank data.
+This can run on Replit, Render, Fly.io, Railway, or a small VPS. For anything beyond personal local use, prefer Postgres over SQLite and put secrets in your hosting platform's secrets manager.

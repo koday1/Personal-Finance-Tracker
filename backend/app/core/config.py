@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Personal Finance Sheets Sync"
+    app_name: str = "Personal Finance Tracker"
     app_env: str = "development"
     database_url: str = "sqlite:///./finance.db"
 
