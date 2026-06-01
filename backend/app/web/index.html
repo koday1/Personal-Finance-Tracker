@@ -314,6 +314,78 @@
         height: 100%;
       }
 
+      .chart-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 18px;
+        padding: 16px;
+      }
+
+      .chart-header {
+        align-items: baseline;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .chart-header h2 {
+        font-size: 16px;
+        margin: 0;
+      }
+
+      .chart-header span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .chart-bars {
+        display: grid;
+        gap: 10px;
+      }
+
+      .chart-row {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 160px minmax(120px, 1fr) 96px;
+        align-items: center;
+      }
+
+      .chart-label {
+        font-size: 13px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .chart-track {
+        background: var(--soft);
+        border-radius: 999px;
+        height: 22px;
+        overflow: hidden;
+      }
+
+      .chart-fill {
+        align-items: center;
+        background: var(--accent);
+        color: white;
+        display: flex;
+        font-size: 12px;
+        font-weight: 700;
+        height: 100%;
+        justify-content: flex-end;
+        min-width: 2px;
+        padding-right: 8px;
+      }
+
+      .chart-amount {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
       @media (max-width: 980px) {
         .toolbar,
         .filters,
@@ -328,6 +400,20 @@
 
         button {
           width: 100%;
+        }
+
+        .chart-header,
+        .chart-row {
+          grid-template-columns: 1fr;
+        }
+
+        .chart-header {
+          align-items: start;
+          display: grid;
+        }
+
+        .chart-amount {
+          text-align: left;
         }
       }
     </style>
@@ -456,6 +542,16 @@
           </div>
         </aside>
       </div>
+
+      <section class="chart-panel" aria-label="Category spending chart">
+        <div class="chart-header">
+          <h2>Category Breakdown Chart</h2>
+          <span id="chartContext">Updates with the current filters</span>
+        </div>
+        <div id="categoryChart" class="chart-bars">
+          <div class="empty">No spending to chart yet.</div>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -464,6 +560,8 @@
       const summaryEl = document.getElementById('summary');
       const rowsEl = document.getElementById('rows');
       const institutionListEl = document.getElementById('institutionList');
+      const categoryChartEl = document.getElementById('categoryChart');
+      const chartContextEl = document.getElementById('chartContext');
       const searchInput = document.getElementById('search');
       const monthFilter = document.getElementById('monthFilter');
       const categoryFilter = document.getElementById('categoryFilter');
@@ -745,6 +843,7 @@
         renderRows(state.filtered);
         renderSummary(state.filtered);
         renderCategoryBreakdown(state.filtered);
+        renderCategoryChart(state.filtered);
       }
 
       function renderRows(transactions) {
@@ -807,6 +906,35 @@
             <div class="bar"><span style="width: ${max ? (amount / max) * 100 : 0}%"></span></div>
           </div>
         `).join('');
+      }
+
+      function renderCategoryChart(transactions) {
+        const expenses = transactions.filter((transaction) => transaction.cashflow_type === 'expense');
+        const totals = Object.entries(categoryTotalsFor(expenses)).sort((a, b) => b[1] - a[1]);
+        const max = totals[0] ? totals[0][1] : 0;
+        const totalSpending = sum(totals.map(([, amount]) => amount));
+        const monthLabel = monthFilter.value === 'all' ? 'All months' : formatMonth(monthFilter.value);
+
+        chartContextEl.textContent = `${monthLabel} • ${formatCurrency(totalSpending)} spending`;
+
+        if (!totals.length) {
+          categoryChartEl.innerHTML = '<div class="empty">No spending to chart for the current filters.</div>';
+          return;
+        }
+
+        categoryChartEl.innerHTML = totals.map(([category, amount]) => {
+          const percentOfMax = max ? (amount / max) * 100 : 0;
+          const percentOfTotal = totalSpending ? Math.round((amount / totalSpending) * 100) : 0;
+          return `
+            <div class="chart-row">
+              <div class="chart-label" title="${escapeHtml(category)}">${escapeHtml(category)}</div>
+              <div class="chart-track">
+                <div class="chart-fill" style="width: ${percentOfMax}%">${percentOfTotal}%</div>
+              </div>
+              <div class="chart-amount">${formatCurrency(amount)}</div>
+            </div>
+          `;
+        }).join('');
       }
 
       function renderItems() {
