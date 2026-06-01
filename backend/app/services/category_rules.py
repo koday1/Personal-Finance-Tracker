@@ -100,8 +100,8 @@ def _is_credit_card_payment(transaction: Transaction, normalized_name: str) -> b
 
 
 def cashflow_type_for(category: str, amount: float) -> str:
-    if category in INCOME_CATEGORIES or amount < 0:
-        return "income"
     if category in TRANSFER_CATEGORIES:
         return "transfer"
+    if category in INCOME_CATEGORIES or amount < 0:
+        return "income"
     return "expense"

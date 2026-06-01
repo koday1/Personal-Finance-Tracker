@@ -3,4 +3,5 @@
 __pycache__/
 *.pyc
 finance.db
+finance-prod.db
 .pytest_cache/
