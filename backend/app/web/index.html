@@ -340,95 +340,50 @@
         font-size: 13px;
       }
 
-      .chart-scroll {
-        overflow-x: auto;
-        padding-bottom: 4px;
-      }
-
-      .axis-chart {
+      .chart-bars {
         display: grid;
-        grid-template-columns: 72px minmax(720px, 1fr);
-        min-height: 360px;
+        gap: 10px;
       }
 
-      .y-axis {
-        border-right: 1px solid var(--line);
-        color: var(--muted);
+      .chart-row {
         display: grid;
-        font-size: 12px;
-        grid-template-rows: repeat(5, 1fr);
-        padding-right: 10px;
-        text-align: right;
-      }
-
-      .y-axis span {
-        transform: translateY(-8px);
-      }
-
-      .plot {
-        background:
-          linear-gradient(to bottom, var(--line) 1px, transparent 1px) 0 0 / 100% 25%,
-          white;
-        display: flex;
-        gap: 16px;
-        min-height: 300px;
-        padding: 0 16px 0;
-        position: relative;
-      }
-
-      .plot::after {
-        background: var(--line);
-        bottom: 0;
-        content: "";
-        height: 1px;
-        left: 0;
-        position: absolute;
-        right: 0;
-      }
-
-      .bar-column {
+        gap: 10px;
+        grid-template-columns: 160px minmax(120px, 1fr) 96px;
         align-items: center;
-        display: grid;
-        flex: 1 0 84px;
-        grid-template-rows: 1fr 54px;
-        min-width: 84px;
       }
 
-      .bar-wrap {
-        align-items: end;
-        display: flex;
-        height: 300px;
-        justify-content: center;
-        width: 100%;
-      }
-
-      .vertical-bar {
-        background: var(--accent);
-        border-radius: 6px 6px 0 0;
-        min-height: 2px;
-        position: relative;
-        width: 42px;
-      }
-
-      .vertical-bar span {
-        color: var(--ink);
-        font-size: 12px;
+      .chart-label {
+        font-size: 13px;
         font-weight: 700;
-        left: 50%;
-        position: absolute;
-        top: -22px;
-        transform: translateX(-50%);
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .x-label {
-        color: var(--muted);
+      .chart-track {
+        background: var(--soft);
+        border-radius: 999px;
+        height: 22px;
+        overflow: hidden;
+      }
+
+      .chart-fill {
+        align-items: center;
+        background: var(--accent);
+        color: white;
+        display: flex;
         font-size: 12px;
         font-weight: 700;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-        padding-top: 8px;
-        text-align: center;
+        height: 100%;
+        justify-content: flex-end;
+        min-width: 2px;
+        padding-right: 8px;
+      }
+
+      .chart-amount {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
       }
 
       @media (max-width: 980px) {
@@ -447,9 +402,18 @@
           width: 100%;
         }
 
+        .chart-header,
+        .chart-row {
+          grid-template-columns: 1fr;
+        }
+
         .chart-header {
           align-items: start;
           display: grid;
+        }
+
+        .chart-amount {
+          text-align: left;
         }
       }
     </style>
@@ -584,7 +548,7 @@
           <h2>Category Breakdown Chart</h2>
           <span id="chartContext">Updates with the current filters</span>
         </div>
-        <div id="categoryChart" class="chart-scroll">
+        <div id="categoryChart" class="chart-bars">
           <div class="empty">No spending to chart yet.</div>
         </div>
       </section>
@@ -958,28 +922,19 @@
           return;
         }
 
-        const yAxisValues = [max, max * 0.75, max * 0.5, max * 0.25, 0];
-        const yAxis = yAxisValues.map((value) => `<span>${formatCompactCurrency(value)}</span>`).join('');
-        const bars = totals.map(([category, amount]) => {
-          const percentOfMax = max ? Math.max((amount / max) * 100, 1) : 1;
+        categoryChartEl.innerHTML = totals.map(([category, amount]) => {
+          const percentOfMax = max ? (amount / max) * 100 : 0;
+          const percentOfTotal = totalSpending ? Math.round((amount / totalSpending) * 100) : 0;
           return `
-            <div class="bar-column">
-              <div class="bar-wrap">
-                <div class="vertical-bar" style="height: ${percentOfMax}%" title="${escapeHtml(category)}: ${formatCurrency(amount)}">
-                  <span>${formatCompactCurrency(amount)}</span>
-                </div>
+            <div class="chart-row">
+              <div class="chart-label" title="${escapeHtml(category)}">${escapeHtml(category)}</div>
+              <div class="chart-track">
+                <div class="chart-fill" style="width: ${percentOfMax}%">${percentOfTotal}%</div>
               </div>
-              <div class="x-label">${escapeHtml(category)}</div>
+              <div class="chart-amount">${formatCurrency(amount)}</div>
             </div>
           `;
         }).join('');
-
-        categoryChartEl.innerHTML = `
-          <div class="axis-chart">
-            <div class="y-axis">${yAxis}</div>
-            <div class="plot">${bars}</div>
-          </div>
-        `;
       }
 
       function renderItems() {
@@ -1029,15 +984,6 @@
         return Number(amount).toLocaleString(undefined, {
           style: 'currency',
           currency: 'USD',
-        });
-      }
-
-      function formatCompactCurrency(amount) {
-        return Number(amount).toLocaleString(undefined, {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 0,
-          notation: Math.abs(Number(amount)) >= 1000 ? 'compact' : 'standard',
         });
       }
 
