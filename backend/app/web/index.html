@@ -468,6 +468,9 @@
         transactions: [],
         filtered: [],
         items: [],
+        config: {
+          plaid_env: 'sandbox',
+        },
       };
 
       apiKeyInput.value = localStorage.getItem('financeApiKey') || '';
@@ -487,10 +490,27 @@
         header.addEventListener('click', () => setSort(header.dataset.sort));
       });
 
-      if (apiKeyInput.value) {
-        loadTransactions();
-      } else {
-        setFilterOptions([]);
+      initialize();
+
+      async function initialize() {
+        await loadConfig();
+        if (apiKeyInput.value) {
+          loadTransactions();
+        } else {
+          setFilterOptions([]);
+        }
+      }
+
+      async function loadConfig() {
+        try {
+          const response = await fetch('/api/config');
+          state.config = await response.json();
+          const isSandbox = state.config.plaid_env === 'sandbox';
+          document.getElementById('testData').style.display = isSandbox ? '' : 'none';
+          document.getElementById('connect').textContent = isSandbox ? 'Connect sandbox bank' : 'Connect real account';
+        } catch (error) {
+          setStatus('Could not load app config.', true);
+        }
       }
 
       async function connectPlaid() {
