@@ -25,4 +25,5 @@ class PlaidItem(Base):
         onupdate=func.now(),
     )
 
+    accounts = relationship("PlaidAccount", back_populates="plaid_item")
     transactions = relationship("Transaction", back_populates="plaid_item")

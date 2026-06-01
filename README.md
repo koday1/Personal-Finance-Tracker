@@ -83,9 +83,10 @@ Use this before connecting real accounts.
 - Transaction table
 - Search by merchant, name, or category
 - Month filter
+- Account filter for checking, savings, and credit card accounts
 - Budget category filter
 - Type filter for expenses, income, and transfers
-- Sort by date, amount, category, name, merchant, or type
+- Sort by date, amount, account, category, name, merchant, or type
 - Monthly summary cards for income, spending, net cashflow, and top category
 - Category breakdown sidebar
 - Connected institutions panel

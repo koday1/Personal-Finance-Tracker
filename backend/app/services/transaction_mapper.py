@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
+from app.models.plaid_account import PlaidAccount
 from app.models.transaction import Transaction
 from app.services.category_rules import budget_category_for, cashflow_type_for
 
@@ -42,12 +43,18 @@ def transaction_to_model_kwargs(plaid_item_id: int, transaction: Any) -> dict[st
 def transaction_to_sheet_row(transaction: Transaction) -> dict[str, Any]:
     amount = float(transaction.amount)
     budget_category = budget_category_for(transaction)
+    account = _account_for_transaction(transaction)
+    account_name = _account_label(account, transaction.plaid_account_id)
     return {
         "date": transaction.transaction_date.isoformat(),
         "name": transaction.name,
         "merchant": transaction.merchant_name or "",
         "amount": amount,
         "currency": transaction.iso_currency_code or "",
+        "account_name": account_name,
+        "account_mask": account.mask if account else "",
+        "account_type": account.type if account else "",
+        "account_subtype": account.subtype if account else "",
         "budget_category": budget_category,
         "cashflow_type": cashflow_type_for(budget_category, amount),
         "category_primary": transaction.category_primary or "",
@@ -57,3 +64,22 @@ def transaction_to_sheet_row(transaction: Transaction) -> dict[str, Any]:
         "account_id": transaction.plaid_account_id,
         "item_id": transaction.plaid_item.item_id if transaction.plaid_item else "",
     }
+
+
+def _account_for_transaction(transaction: Transaction) -> Optional[PlaidAccount]:
+    if not transaction.plaid_item:
+        return None
+    for account in transaction.plaid_item.accounts:
+        if account.plaid_account_id == transaction.plaid_account_id:
+            return account
+    return None
+
+
+def _account_label(account: Optional[PlaidAccount], fallback_account_id: str) -> str:
+    if not account:
+        return fallback_account_id
+
+    label = account.name
+    if account.mask:
+        label = f"{label} - {account.mask}"
+    return label

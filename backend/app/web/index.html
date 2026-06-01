@@ -116,7 +116,7 @@
       }
 
       .filters {
-        grid-template-columns: 1.5fr repeat(4, minmax(150px, 1fr));
+        grid-template-columns: 1.5fr repeat(5, minmax(140px, 1fr));
       }
 
       .summary-grid {
@@ -186,7 +186,7 @@
 
       table {
         border-collapse: collapse;
-        min-width: 1040px;
+        min-width: 1180px;
         width: 100%;
       }
 
@@ -334,7 +334,7 @@
   </head>
   <body>
     <header>
-      <h1>Personal Finance Sync</h1>
+      <h1>Personal Finance Tracker</h1>
       <span id="summary">No transactions loaded</span>
     </header>
 
@@ -364,6 +364,10 @@
           <select id="categoryFilter"></select>
         </label>
         <label>
+          Account
+          <select id="accountFilter"></select>
+        </label>
+        <label>
           Type
           <select id="typeFilter">
             <option value="all">All</option>
@@ -379,6 +383,7 @@
             <option value="date-asc">Date oldest</option>
             <option value="amount-desc">Amount high</option>
             <option value="amount-asc">Amount low</option>
+            <option value="account_name-asc">Account A-Z</option>
             <option value="budget_category-asc">Category A-Z</option>
             <option value="name-asc">Name A-Z</option>
             <option value="merchant-asc">Merchant A-Z</option>
@@ -421,6 +426,7 @@
                   <th data-sort="date">Date</th>
                   <th data-sort="name">Name</th>
                   <th data-sort="merchant">Merchant</th>
+                  <th data-sort="account_name">Account</th>
                   <th data-sort="amount">Amount</th>
                   <th data-sort="budget_category">Budget Category</th>
                   <th data-sort="cashflow_type">Type</th>
@@ -429,7 +435,7 @@
               </thead>
               <tbody id="rows">
                 <tr>
-                  <td colspan="7" class="empty">Create test data, then sync transactions.</td>
+                  <td colspan="8" class="empty">Create test data, then sync transactions.</td>
                 </tr>
               </tbody>
             </table>
@@ -461,6 +467,7 @@
       const searchInput = document.getElementById('search');
       const monthFilter = document.getElementById('monthFilter');
       const categoryFilter = document.getElementById('categoryFilter');
+      const accountFilter = document.getElementById('accountFilter');
       const typeFilter = document.getElementById('typeFilter');
       const sortSelect = document.getElementById('sortSelect');
       const buttons = [...document.querySelectorAll('button')];
@@ -482,7 +489,7 @@
       document.getElementById('testData').addEventListener('click', createSandboxItem);
       document.getElementById('sync').addEventListener('click', syncTransactions);
       document.getElementById('refresh').addEventListener('click', loadTransactions);
-      [searchInput, monthFilter, categoryFilter, typeFilter, sortSelect].forEach((control) => {
+      [searchInput, monthFilter, categoryFilter, accountFilter, typeFilter, sortSelect].forEach((control) => {
         control.addEventListener('input', applyFilters);
         control.addEventListener('change', applyFilters);
       });
@@ -653,11 +660,13 @@
       function setFilterOptions(transactions) {
         const selectedMonth = monthFilter.value || 'all';
         const selectedCategory = categoryFilter.value || 'all';
+        const selectedAccount = accountFilter.value || 'all';
         const months = [...new Set(transactions.map((transaction) => transaction.date.slice(0, 7)))].sort().reverse();
         const categories = [...new Set([
           ...transactions.map((transaction) => transaction.budget_category || 'Other'),
           'Other',
         ])].sort();
+        const accounts = [...new Set(transactions.map((transaction) => transaction.account_name || transaction.account_id || 'Unknown account'))].sort();
 
         monthFilter.innerHTML = [
           '<option value="all">All months</option>',
@@ -667,21 +676,28 @@
           '<option value="all">All categories</option>',
           ...categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`),
         ].join('');
+        accountFilter.innerHTML = [
+          '<option value="all">All accounts</option>',
+          ...accounts.map((account) => `<option value="${escapeHtml(account)}">${escapeHtml(account)}</option>`),
+        ].join('');
 
         monthFilter.value = months.includes(selectedMonth) ? selectedMonth : months[0] || 'all';
         categoryFilter.value = categories.includes(selectedCategory) ? selectedCategory : 'all';
+        accountFilter.value = accounts.includes(selectedAccount) ? selectedAccount : 'all';
       }
 
       function applyFilters() {
         const query = searchInput.value.trim().toLowerCase();
         const month = monthFilter.value;
         const category = categoryFilter.value;
+        const account = accountFilter.value;
         const type = typeFilter.value;
 
         state.filtered = state.transactions.filter((transaction) => {
           const haystack = [
             transaction.name,
             transaction.merchant,
+            transaction.account_name,
             transaction.budget_category,
             transaction.category_primary,
             transaction.category_detailed,
@@ -690,6 +706,7 @@
           return (!query || haystack.includes(query))
             && (month === 'all' || transaction.date.startsWith(month))
             && (category === 'all' || transaction.budget_category === category)
+            && (account === 'all' || transaction.account_name === account)
             && (type === 'all' || transaction.cashflow_type === type);
         });
 
@@ -733,7 +750,7 @@
       function renderRows(transactions) {
         summaryEl.textContent = `${transactions.length} shown of ${state.transactions.length}`;
         if (!transactions.length) {
-          rowsEl.innerHTML = '<tr><td colspan="7" class="empty">No transactions match these filters.</td></tr>';
+          rowsEl.innerHTML = '<tr><td colspan="8" class="empty">No transactions match these filters.</td></tr>';
           return;
         }
 
@@ -742,6 +759,7 @@
             <td>${escapeHtml(transaction.date)}</td>
             <td>${escapeHtml(transaction.name)}</td>
             <td>${escapeHtml(transaction.merchant)}</td>
+            <td>${escapeHtml(transaction.account_name || transaction.account_id)}</td>
             <td class="amount ${transaction.cashflow_type}">${formatSignedAmount(transaction)}</td>
             <td><span class="pill">${escapeHtml(transaction.budget_category)}</span></td>
             <td>${escapeHtml(labelType(transaction.cashflow_type))}</td>
@@ -802,6 +820,7 @@
             <div>
               <strong>${escapeHtml(item.institution_name)}</strong>
               <span>${escapeHtml(item.item_id)}</span>
+              <span>${accountCountLabel(item.accounts ? item.accounts.length : 0)}</span>
             </div>
             <button class="danger" type="button" data-item-id="${escapeHtml(item.item_id)}" data-institution="${escapeHtml(item.institution_name)}">
               Disconnect
@@ -850,6 +869,10 @@
 
       function transactionCountLabel(count) {
         return `${count} transaction${count === 1 ? '' : 's'}`;
+      }
+
+      function accountCountLabel(count) {
+        return `${count} account${count === 1 ? '' : 's'}`;
       }
 
       function labelType(value) {

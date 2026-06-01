@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.item_remove_request import ItemRemoveRequest
@@ -18,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import decrypt_token, encrypt_token, require_app_api_key
 from app.db.session import get_db
+from app.models.plaid_account import PlaidAccount
 from app.models.plaid_item import PlaidItem
 from app.models.transaction import Transaction
 from app.services.plaid_client import get_plaid_client
@@ -61,6 +63,17 @@ def list_items(db: Session = Depends(get_db)) -> dict[str, object]:
                 "item_id": item.item_id,
                 "institution_name": item.institution_name or "Connected institution",
                 "user_id": item.user_id,
+                "accounts": [
+                    {
+                        "account_id": account.plaid_account_id,
+                        "name": account.name,
+                        "official_name": account.official_name,
+                        "mask": account.mask,
+                        "type": account.type,
+                        "subtype": account.subtype,
+                    }
+                    for account in item.accounts
+                ],
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
             }
@@ -186,6 +199,7 @@ def sync_transactions(
     client = get_plaid_client()
 
     for item in items:
+        _sync_accounts(client, db, item)
         added, modified, removed, cursor = _sync_item(client, db, item, payload.max_pages)
         item.transactions_cursor = cursor
         total_added += added
@@ -199,6 +213,31 @@ def sync_transactions(
         "modified": total_modified,
         "removed": total_removed,
     }
+
+
+def _sync_accounts(client: Any, db: Session, item: PlaidItem) -> None:
+    access_token = decrypt_token(item.encrypted_access_token)
+    response = client.accounts_get(AccountsGetRequest(access_token=access_token))
+
+    for account in response["accounts"]:
+        account_id = account["account_id"]
+        existing = db.scalar(
+            select(PlaidAccount).where(PlaidAccount.plaid_account_id == account_id)
+        )
+        values = {
+            "plaid_item_id": item.id,
+            "plaid_account_id": account_id,
+            "name": account.get("name") or "Account",
+            "official_name": account.get("official_name"),
+            "mask": account.get("mask"),
+            "type": str(account.get("type")) if account.get("type") else None,
+            "subtype": str(account.get("subtype")) if account.get("subtype") else None,
+        }
+        if existing:
+            for key, value in values.items():
+                setattr(existing, key, value)
+        else:
+            db.add(PlaidAccount(**values))
 
 
 def _sync_item(client: Any, db: Session, item: PlaidItem, max_pages: int) -> tuple[int, int, int, Optional[str]]:

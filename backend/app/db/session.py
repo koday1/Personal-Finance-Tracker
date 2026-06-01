@@ -16,7 +16,7 @@ class Base(DeclarativeBase):
 
 
 def init_db() -> None:
-    from app.models import plaid_item, transaction  # noqa: F401
+    from app.models import plaid_account, plaid_item, transaction  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 
