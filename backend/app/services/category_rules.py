@@ -48,7 +48,10 @@ MERCHANT_RULES = [
 NAME_RULES = [
     ("gusto", "Income"),
     ("credit card", "Credit Card Payment"),
-    ("automatic payment", "Debt"),
+    ("student loan", "Debt"),
+    ("mortgage", "Debt"),
+    ("auto loan", "Debt"),
+    ("loan payment", "Debt"),
     ("intrst pymnt", "Interest"),
     ("venmo", "Transfers"),
     ("zelle", "Transfers"),
@@ -62,6 +65,9 @@ TRANSFER_CATEGORIES = {"Transfers", "Credit Card Payment"}
 def budget_category_for(transaction: Transaction) -> str:
     merchant = (transaction.merchant_name or "").lower()
     name = transaction.name.lower()
+
+    if _is_credit_card_payment(transaction, name):
+        return "Credit Card Payment"
 
     for needle, category in MERCHANT_RULES:
         if needle in merchant:
@@ -77,6 +83,20 @@ def budget_category_for(transaction: Transaction) -> str:
 
     primary = transaction.category_primary or ""
     return CATEGORY_BY_PRIMARY.get(primary, DEFAULT_BUDGET_CATEGORY)
+
+
+def _is_credit_card_payment(transaction: Transaction, normalized_name: str) -> bool:
+    if "payment" not in normalized_name:
+        return False
+    if not transaction.plaid_item:
+        return False
+
+    for account in transaction.plaid_item.accounts:
+        if account.plaid_account_id != transaction.plaid_account_id:
+            continue
+        return account.subtype == "credit card" or account.type == "credit"
+
+    return False
 
 
 def cashflow_type_for(category: str, amount: float) -> str:
