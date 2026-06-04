@@ -104,9 +104,3 @@ backend/.venv/
 ```
 
 They are ignored by Git.
-
-## Optional Google Sheets
-
-There is an older Google Sheets integration in `google-apps-script/`, but the recommended workflow is the built-in dashboard.
-
-See `docs/sheets-setup.md` if you want to experiment with Sheets later.
