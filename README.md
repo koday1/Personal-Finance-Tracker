@@ -1,36 +1,12 @@
 # Personal Finance Tracker
 
-A lightweight personal budgeting app that syncs Plaid transactions into a local FastAPI backend and displays them in a simple dashboard.
+A simple personal budgeting dashboard for syncing Plaid transactions and viewing everything in one place.
 
-The current app is built for a low-cost, self-owned workflow:
+The app currently runs locally, connects to Plaid, stores transactions in a local database, and shows a dashboard with filters, account labels, categories, monthly totals, and connected institutions.
 
-- FastAPI backend
-- Plaid Sandbox and Plaid Link support
-- Encrypted Plaid access token storage
-- Transaction syncing through Plaid `/transactions/sync`
-- Local dashboard with transaction table, filters, monthly summary, and category breakdown
-- Friendly budget categories and starter category rules
-- Disconnect button that removes a Plaid Item through `/item/remove`
-- Optional Google Sheets export path for later
+## Run The App
 
-## Repository Layout
-
-```text
-backend/
-  app/
-    api/                 FastAPI route modules
-    core/                settings and security helpers
-    db/                  database session/bootstrap
-    models/              SQLAlchemy models
-    services/            Plaid client, category rules, and transaction mapping
-    web/                 Built-in dashboard UI
-google-apps-script/
-  Code.gs                Optional Apps Script client for Google Sheets
-docs/
-  sheets-setup.md        Optional spreadsheet setup notes
-```
-
-## Quick Start
+From the project folder:
 
 ```bash
 cd backend
@@ -38,12 +14,17 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+```
+
+Generate an encryption key:
+
+```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Paste the generated key into `TOKEN_ENCRYPTION_KEY` in `backend/.env`.
+Paste that value into `TOKEN_ENCRYPTION_KEY` in `backend/.env`.
 
-Then fill in:
+Fill in the rest of `backend/.env`:
 
 ```env
 PLAID_CLIENT_ID=
@@ -52,7 +33,7 @@ PLAID_ENV=sandbox
 APP_API_KEY=choose-a-local-password
 ```
 
-Run locally:
+Start the app:
 
 ```bash
 uvicorn app.main:app --reload
@@ -66,92 +47,66 @@ http://127.0.0.1:8000
 
 Paste your `APP_API_KEY` into the dashboard.
 
-## Simplest Sandbox Test
+## Test With Fake Data
 
-Use this before connecting real accounts.
+Use Sandbox before connecting real accounts.
 
-1. Start the backend.
-2. Open `http://127.0.0.1:8000`.
-3. Paste your `APP_API_KEY`.
-4. Click `Create test data`.
-5. The app creates a fake Plaid Sandbox institution, syncs transactions, and loads the dashboard.
+1. Set `PLAID_ENV=sandbox`.
+2. Start the app.
+3. Open `http://127.0.0.1:8000`.
+4. Paste your `APP_API_KEY`.
+5. Click `Create test data`.
+6. Click `Sync transactions` if the table does not load automatically.
 
-`Connect sandbox bank` is available if you want to test Plaid Link itself, but `Create test data` is the fastest path for local testing.
+## Use Real Accounts
 
-## Current Dashboard Features
+For real accounts:
 
-- Transaction table
-- Search by merchant, name, or category
-- Month filter
-- Account filter for checking, savings, and credit card accounts
-- Budget category filter
-- Type filter for expenses, income, and transfers
-- Sort by date, amount, account, category, name, merchant, or type
-- Monthly summary cards for income, spending, net cashflow, and top category
-- Category breakdown sidebar
-- Connected institutions panel
-- Disconnect button for removing Plaid Items
-
-## Budget Categories
-
-Plaid categories are mapped into friendlier budget categories in:
-
-```text
-backend/app/services/category_rules.py
+```env
+PLAID_ENV=production
+DATABASE_URL=sqlite:///./finance-prod.db
 ```
 
-Examples:
+Then start the app and click `Connect account`.
 
-- `FOOD_AND_DRINK_COFFEE` -> `Coffee`
-- `FOOD_AND_DRINK_FAST_FOOD` -> `Restaurants`
-- `RENT_AND_UTILITIES` -> `Bills`
-- `TRANSPORTATION_TAXIS_AND_RIDE_SHARES` -> `Rideshare`
-- Unknown categories -> `Other`
+Only enter bank credentials inside the Plaid popup. Do not put bank usernames or passwords in this app, `.env`, GitHub, or chat.
 
-Merchant and name rules can also override Plaid categories.
+## Main Buttons
 
-## Main Flow
+`Connect account` connects a bank through Plaid.
 
-1. The dashboard calls `POST /api/plaid/link-token` or `POST /api/plaid/sandbox-item`.
-2. The backend stores an encrypted Plaid access token.
-3. `Sync transactions` calls `POST /api/plaid/sync-transactions`.
-4. The backend updates local SQLite transaction data.
-5. The dashboard calls `GET /api/sheets/transactions` to render the table and summaries.
+`Sync transactions` asks Plaid for new, changed, or removed transactions and updates the local database.
 
-The `/api/sheets/transactions` name is historical; it now powers both the local dashboard and the optional Sheets workflow.
+`Refresh table` reloads what is already saved locally.
 
-## Sync vs Refresh
+`Disconnect` removes a connected institution from Plaid and deletes its local transactions.
 
-`Sync transactions` talks to Plaid and updates the local database.
+## What The Dashboard Shows
 
-`Refresh table` only reloads transactions that are already saved locally.
+- Transactions from connected accounts
+- Account labels for checking, savings, and credit cards
+- Search and filters by month, account, category, and type
+- Income, spending, net cashflow, and top category
+- Category breakdown
+- Connected institutions
 
-## Disconnecting Institutions
+Credit card payments are treated as transfers so they do not double-count as spending.
 
-Use the dashboard's `Disconnect` button under `Connected Institutions` to remove an institution.
+## Local Files To Protect
 
-That calls Plaid `/item/remove`, deletes that institution's local transactions, and removes the stored access token. This matters because Plaid billing can continue while an Item exists.
+Do not commit these:
 
-## Secrets And Local Data
+```text
+backend/.env
+backend/finance.db
+backend/finance-prod.db
+backend/.venv/
+```
 
-Do not commit:
-
-- `backend/.env`
-- `backend/finance.db`
-- `backend/.venv/`
-
-These are ignored by Git.
+They are ignored by Git.
 
 ## Optional Google Sheets
 
-The original Sheets integration still exists, but the recommended first workflow is the built-in dashboard.
+There is an older Google Sheets integration in `google-apps-script/`, but the recommended workflow is the built-in dashboard.
 
-See:
-
-```text
-docs/sheets-setup.md
-```
-
-## Deployment Notes
-
-This can run on Replit, Render, Fly.io, Railway, or a small VPS. For anything beyond personal local use, prefer Postgres over SQLite and put secrets in your hosting platform's secrets manager.
+See `docs/sheets-setup.md` if you want to experiment with Sheets later.
