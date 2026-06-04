@@ -514,7 +514,7 @@
           state.config = await response.json();
           const isSandbox = state.config.plaid_env === 'sandbox';
           document.getElementById('testData').style.display = isSandbox ? '' : 'none';
-          document.getElementById('connect').textContent = isSandbox ? 'Connect sandbox bank' : 'Connect real account';
+          document.getElementById('connect').textContent = isSandbox ? 'Connect sandbox bank' : 'Connect account';
         } catch (error) {
           setStatus('Could not load app config.', true);
         }
