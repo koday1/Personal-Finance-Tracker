@@ -10,16 +10,36 @@
         color-scheme: light;
         --bg: #f7f8f5;
         --panel: #ffffff;
+        --control: #ffffff;
         --ink: #17201b;
         --muted: #66736b;
         --line: #dce3dc;
         --soft: #eef3ef;
+        --heading: #415047;
         --accent: #0f766e;
         --accent-dark: #115e59;
         --purple: #5b4b8a;
         --danger: #b42318;
         --income: #147d50;
         --expense: #9f3a24;
+      }
+
+      body[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #111614;
+        --panel: #171f1b;
+        --control: #111614;
+        --ink: #edf5ef;
+        --muted: #9fb0a7;
+        --line: #2c3a33;
+        --soft: #223029;
+        --heading: #c6d5cd;
+        --accent: #2aa198;
+        --accent-dark: #6fd0c7;
+        --purple: #7a6bb0;
+        --danger: #f07167;
+        --income: #58c98d;
+        --expense: #f08a6c;
       }
 
       * {
@@ -65,7 +85,7 @@
 
       input,
       select {
-        background: white;
+        background: var(--control);
         border: 1px solid var(--line);
         border-radius: 6px;
         color: var(--ink);
@@ -89,7 +109,7 @@
       }
 
       button.secondary {
-        background: white;
+        background: var(--control);
         color: var(--accent-dark);
       }
 
@@ -201,7 +221,7 @@
 
       th {
         background: var(--soft);
-        color: #415047;
+        color: var(--heading);
         cursor: pointer;
         font-size: 12px;
         position: sticky;
@@ -282,7 +302,7 @@
       }
 
       button.danger {
-        background: white;
+        background: var(--control);
         border-color: var(--danger);
         color: var(--danger);
         min-height: 34px;
@@ -314,6 +334,29 @@
         height: 100%;
       }
 
+      .header-actions {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+      }
+
+      .theme-toggle {
+        align-items: center;
+        color: var(--muted);
+        cursor: pointer;
+        display: flex;
+        font-size: 12px;
+        font-weight: 700;
+        gap: 8px;
+        text-transform: uppercase;
+      }
+
+      .theme-toggle input {
+        inline-size: 34px;
+        min-height: 18px;
+        width: 34px;
+      }
+
       @media (max-width: 980px) {
         .toolbar,
         .filters,
@@ -335,7 +378,13 @@
   <body>
     <header>
       <h1>Personal Finance Tracker</h1>
-      <span id="summary">No transactions loaded</span>
+      <div class="header-actions">
+        <label class="theme-toggle">
+          <input id="themeToggle" type="checkbox">
+          Dark
+        </label>
+        <span id="summary">No transactions loaded</span>
+      </div>
     </header>
 
     <main>
@@ -464,6 +513,7 @@
       const summaryEl = document.getElementById('summary');
       const rowsEl = document.getElementById('rows');
       const institutionListEl = document.getElementById('institutionList');
+      const themeToggle = document.getElementById('themeToggle');
       const searchInput = document.getElementById('search');
       const monthFilter = document.getElementById('monthFilter');
       const categoryFilter = document.getElementById('categoryFilter');
@@ -483,6 +533,15 @@
       apiKeyInput.value = localStorage.getItem('financeApiKey') || '';
       apiKeyInput.addEventListener('change', () => {
         localStorage.setItem('financeApiKey', apiKeyInput.value);
+      });
+
+      const savedTheme = localStorage.getItem('financeTheme') || 'light';
+      document.body.dataset.theme = savedTheme;
+      themeToggle.checked = savedTheme === 'dark';
+      themeToggle.addEventListener('change', () => {
+        const theme = themeToggle.checked ? 'dark' : 'light';
+        document.body.dataset.theme = theme;
+        localStorage.setItem('financeTheme', theme);
       });
 
       document.getElementById('connect').addEventListener('click', connectPlaid);
